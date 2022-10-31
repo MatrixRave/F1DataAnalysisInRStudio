@@ -1,0 +1,52 @@
+---
+title: "F1-Analyse: Die Saison 2010 - eine Saison für die Ewigkeit"
+author: "Fabian Nicklas"
+date: '2022-06-21'
+output: html_document
+---
+Wir betrachten in dieser Analyse die Saison 2010 und den Titelkampf von Sebastian Vettel, Fernando Alonso, Mark Webber und Lewis Hamilton. Alle 4 Fahrer hatten im letzten Saisonrennen noch die Chance Weltmeister zu werden. Wir stellen uns die Frage ob sich dieser Saisonhöhepunkt schon im Laufe der Saison abgezeichnet hat, oder ob er von den Daten nicht erfasst wurde. Wir betrachten außerdem die Anzahl der Pole Positions pro Fahrer um herauszufinden ob es einen Fahrer gab, der hier besonders dominant war. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+```
+
+Um den Verlauzf der Saison grafisch darzustellen verwenden wir die Tabelle resultsXdriversXraces, in der wir dann mit Hilfe der driverRef, also der Referenz auf den Fahrer nach unseren 4 Fahrern filtern. Anschließend filtern wir nach dem Jahr, sodass wir nur Daten zu den Fahrern aus dem Jahr 2010 erhalten, aus denen wir dann die Attribute date, driverRef und points selektieren, um dann mit Hilfe der mutate Funktion eine neue Variable raceWin einzuführen. Mit Hilfe eines ifelse Vergleichs prüfen wir ob ein Fahrer für ein Rennen 25 Punkte erhalten hat, ist dies der Fall schreiben wir in raceWin ein yes, ist dies nicht der Fall schreiben wir ein no. Im Anschluss daran groupieren wir unsere Daten nach der driverRef und erstellen mit Hilfe von mutate wieder eine neue Variable namens wdcPoints, in der wir mit Hilfe der Funktion cumsum die Zahl der Punkte speichern, die ein Fahrer im laufe der Saison gesammelt hat. Als Darstellungsart wählen wir einen Linegraph, bei dem wir auf die x-Achse das Datum und auf die y-Achse die Zahl der Punkte schreiben. Um die Linien besser lesen zu können zeichnen wir sie etwas dicker, und binden die Rennsiege mit ein. Ein Rennsieg wird dabei als Dreieck im jeweiligen Graphen angezeigt, alles andere als Kreis. Zum Abschluss fügen wir noch eine Überschrift und eine Unterüberschrift hinzu, und die Legende zur Grafik. 
+In der Analyse zeigt sich, dass alle 4 Fahrer die ganze Saison über dicht beieinander lagen, nur zur Mitte der Saison wurden die Abstände für kurze Zeit etwas größer. Es wird auch deutlich, dass es fast keine Rennen gab, in denen nicht alle Fahrer Punkte erzeilt haben, was unterstreicht, wie eng die Saison war, und das alle Fahrer sehr konstant ihre Leistung über die komplette Saison halten konnten.
+```{r ChampionshipPointsAnalysis, message=FALSE, warning=FALSE, include=TRUE}
+resultsXdriversXraces <- read_csv("dataBereinigt/resultsXdriversXraces.csv")
+resultsXdriversXraces %>%
+  dplyr::filter(driverRef == 'hamilton' | driverRef == 'alonso' | driverRef == 'webber' | driverRef == 'vettel') %>%
+  dplyr::filter(year == 2010) %>%
+  select(date, driverRef, points) %>% mutate(raceWin = ifelse(points == 25, 'yes', 'no')) %>%
+  group_by(driverRef) %>%
+  mutate(wdcPoints = cumsum(points)) %>%
+  ggplot(aes(x = date, y = wdcPoints, color = driverRef)) + 
+  geom_line(size = 1.5) +
+  geom_point(aes(shape = raceWin), size = 1.5, color = "black") +
+  theme_linedraw() + 
+  labs(title = "Points collected by championship contenders", subtitle = "How close was the title race?")
+  
+```
+In der vorherigen Analyse haben wir festgestellt, dass die Leistung aller Fahrer sehr konstant war, und sie eng beeinander lagen. Es stellt sich  die Frage, ob die Leistungen nur im Rennen so eng zusammen lagen, oder ob alle Fahrer auch ähnlich stark im Qualiyfing waren. Um diese Frage zu beantworten nehmen wir uns wieder die resultsXdriversXraces Tabelle und nutzen im Grund die selben Befehle wie in der letzten Analyse um eine Grafik zu erstellen. Der einzige Unterschied ist, dass wir diesmal poles als neue Variable erschaffen und in ihr speicher ob ein Fahrer die Poleposition geholt hat oder nicht. Die zweite Variable die wir ändern ist die zweite neu erzeuigte Variable numberPoles, in der wir diesmal die Anzahl der Polepositions speichern, die ein Fahrer im Verlauf der Saison für sich gewinnen konnte. Als Ergebnis erhalten wir folglich auch diesmal einen Linegraph, in dem wir auch wieder ablesen können, ob ein Fahrer in einem Rennen die Pole ergattern konnte oder nicht. 
+Beim betrachten der Grtafik fällt sofort auf, dass die Abstände zwischen den Fahrern hier deutlich größer sind als bei den Punkten. Sowohl in Sachen Konstanz, als auch in Sachen Leistung sticht ein Fahrer hier deutlich hervor, der mehr Poles für sich entscheiden konnte als die 3 anderen Fahrer zusammen im Laufe der Saison. Gleichzeitig könne wir erkennen, dass die erste Pole der Saison an keinen der von uns genauer betrachteten Fahrer ging, und alle restlichen Poles der Saison schon. Vergleichen wir dies mit den Punkten, ist es das einzige mal in beiden Grafiken, dass keiner der Fahrer in der Lage war etwas zu "gewinnen". 
+```{r PoleAnalysis, message=FALSE, warning=FALSE, include=TRUE}
+resultsXdriversXraces <- read_csv("dataBereinigt/resultsXdriversXraces.csv")
+resultsXdriversXraces %>%
+    dplyr::filter(driverRef == 'hamilton' | driverRef == 'alonso' | driverRef == 'webber' | driverRef == 'vettel') %>%
+  dplyr::filter(year == 2010) %>%
+  select(date, driverRef, grid) %>% mutate(poles = ifelse(grid == 1, 'yes', 'no')) %>%
+  group_by(driverRef)  %>%
+  mutate(numberPoles = cumsum(grid == 1)) %>%
+  ggplot(aes(x = date, y = numberPoles, color = driverRef)) + 
+  geom_line(size = 1.5) +
+  geom_point(aes(shape = poles), size = 1.5, color = "black") +
+  theme_linedraw() + 
+  labs(title = "Pole positions collected by championship contenders", subtitle = "Has there been a dominant driver?")
+  
+```
+
+Zum Abschluss besprechen wir noch, welche Schwierigkeiten aufgetreten sind, welche Erkenntnisse wir gewinnen konnten, und was man in Zukunft besser machen könnte. 
+Eine Schwierigkeit mit den Daten ist den Überblick zu behalten, hinter welcher Spalte in welcher Tabelle sich welche Daten verstecken, da die Tabellen durch die vielen Schlüssel die benötigt werden um eine Datenbank zu erstellen, sehr groß und verzweigt sind. Gleichzeitig sind neben der in manchen Tabellen sehr hohen Anahl an Schlüsseln auch die Zahl der Spalten die Daten enthalten sehr hoch. Die Schwierigkeit besteht dann darin die verwertbaren Daten von den nicht verwertbaren Daten zu unterscheiden und die entsprechenden Spalten auszusortieren. Ein weiteres Problem mit den vorhandenen Daten ist, dass ab einem bestimmten Punkt die Datenlage extrem dünn wird. So sind ab der Saison 2003 abwärts keine Rundenzeiten mehr verfügbar, was die Analyse der Entwicklung der Rundenzeiten extrem erschwert. Auch bei anderen Spalten wird die Datenlage je weiter man in die Vergangenheit geht immer dünner, was verschiedene Analysen schwer oder gar nicht erst möglich macht. Ebenfalls schwierig ist, dass manche der Zeiten als Datentyp Charakter vorliegen. Dies macht eine Umwandlung der betroffenen Spalten notwendig, was es nötig macht eigene Funktionen zur Umwandlung zu schreiben. Die Gefahr hierbei ist, dass die Daten an Genauigkeit verlieren. Beim Schreiben der Funktion zur Umwandlung der Daten sollte in Zukunft darauf geachtet werden, dass nicht versucht wird NA´s umzuwandeln, da dies nicht nur Zeit kostet, sondern auch dafür sorgt, dass ein Parsing Error ausgegeben wird, den man so vermeiden könnte.Eine andere Erkenntnis ist, dass die Daten weniger Aussagekraft haben können als man eigentlich denkt. Manche Analysen scheitern, weil man erst zum Ende der Analyse erkennt, dass Daten fehlen bzw. unvollständig sind. Ebenfalls problematisch ist wie anfangs schon erwähnt die Größe der Tabellen. Hier sollte in der Zukunft darauf geachtet werden, dass man die Tabellen so weit wie möglich kürzt, sprich von überflüssigen oder nicht verwendeten Spalten bereinigt. 
+In der Zukunft ließe sich mit den vorhandenen Daten zum Beispiel noch eine Map einfügen, auf der die Heimatländer der einzelnen Konstrukteure verzeichnet sind, oder eine Karte auf der die einzelnen Rennstrecken eingezeichnet sind. Ebenfalls möglich wäre eine komplette Analyse einer einzelnen Strecke, oder einer Entwicklung der Zeiten beim Boxenstopp. Auch hier muss aber wieder auf die Vollständigkeit der Daten geachtet werden. Außerdem möglich wäre eine Betrachtung wie viele Fahrer aus welchem Land kommen, und welche Kontinente oder Länder schon durch einen Fahrer in de Formel1 vertreten waren. Außerdem könnte man betrachten, wie lange sich ein Fahrer im Schnitt in der Formel1 hält, wie alt ein Fahrer im Durchschnitt bei Eintritt in die Formel1 ist, und wie alter er im Schnitt ist, wenn er sie wieder verlässt.

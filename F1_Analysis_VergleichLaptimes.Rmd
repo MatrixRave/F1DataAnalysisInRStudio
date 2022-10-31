@@ -1,0 +1,31 @@
+---
+title: "F1-Analyse: Entwicklung der Rundenzeiten seit 2001"
+author: "Fabian Nicklas"
+date: '2022-05-31'
+output: html_document
+---
+
+In der folgendne Analyse betrachten wir, wie sich die Rundenzeiten auf den Strecken Monaco, Spa, Monza und Silverstone seit 2001 entwickelt haben. Da die Technologie immer weiter voranschreitet ist davon auszugehen, dass sich die Rundenzeiten im Laufe der Jahre immer weiter verbessern sollten. Sollten Unregelmäßigkeiten in den Auswertungen auftreten, versuchen wir diese zu erklären. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(ggthemes)
+```
+
+Dazu nehmen wir die in DataSetup erstellte Tabelle resultsXraces und filtern nach Jahren die größer als 2001 sind. Gleichzeitig gruppieren wir nach dem Jahr und nach dem Namen der Strecke (name.y). Anschließend filtern wir nach den eingangs erwähnten Strecken, indem wir die circuitId´s der Einträge mit den circuitId´s der Strecken abgleichen. Aus den gefilterten Daten bilden wir mit Hilfe von summarize einen neuen data frame, der den Median der schnellsten Runden einer Strecke enthält. Den Median bilden wir dabei aus der Spalte fastestLapTimeConverted, um Probleme zu vermeiden berücksichtigen wir NA´s hier nicht weiter und entfernen sie beim bilden des Werts. Anschließend erstellen wir mit Hilfe von ggplot einen Linegraph, bei dem wir auf der x-Achse das Jahr abbilden und auf der y-Achse den Median der schnellsten Rundenzeit. Die Legende erstellen wir mit Hilfe des Attributs name.y (Name der Rennstrecke). Wir verändern das Theme des Grpahen und fügen sowohl eine Überschrift als auch eine Unterüberschrift hinzu, außerdem passen wir den Namen der y-Achse an. 
+Tatsächlich können wir in der entstandenen Grafik eine Veränderung der Rundenzeiten erkennen, jedoch wiederspricht der erste Trend unserer Vermutung, die Rundenzeiten steigen nämlich zu Beginn der Grafik an. Dies hängt allerdings in der Tat mit einem Technologiewechsel zusammen, da hier das technische Regelement geändert wurde, und den Teams so neue Vorschriften gemacht wurden welche Technologien erlaubt waren und welche nicht. Auch hier gilt es also zu bedenken, dass Veränderungen der Rundenzeiten nicht nur duch bessere Technologien, sondern auch durch neue Regeln hervorgerufen werden können. Da die Rundenzeiten zudem noch schwer von den Rennstrecken abhängen, gilt es auch zu berücksichtigen, dass sich eventuelle Änderungen im Streckenlayout auch auf die Rundenzeiten auswirken können. In den Grafiken ist allerdings auch erkennbar, dass sich nach einer kurzen Eingewähnungsphase an die neuen Technologien oder das neue Streckenlayout die Rundenzeiten schnell wieder verbesserten. Wir können also festhalten, dass sich die Rundenzeiten abgesehen von Umgewöhnungsphasen im Laufe der Zeit tatrsächlich immer wieder weiter verbessert haben. Wir müssen allerdings auch festhalten, dass dieserr Wert von vielen äußeren Einflussfaktoren abhängt, die wir den Daten nicht bzw. nicht immer entnehmen können. 
+```{r LapTimesDataSetup, message=FALSE, warning=FALSE, include=TRUE}
+resultsXraces <- read_csv("dataBereinigt/resultsXraces.csv")
+resultsXraces %>%
+  dplyr::filter(year > 2001) %>% 
+  dplyr::group_by(year,name.y) %>%
+  dplyr::filter(circuitId == 6 | circuitId == 9 | circuitId == 13 |  circuitId == 14) %>% 
+  summarize(medianFastestLapTime = median(fastestLapTimeConverted, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = medianFastestLapTime, color = name.y)) + geom_line() + xlim(2003,2022) +
+  theme_linedraw() + 
+  labs(title = "Evolution of average laptime in 20 years", subtitle = "time in seconds", color = "Circuits") +
+  ylab("Laptime in Seconds") 
+```

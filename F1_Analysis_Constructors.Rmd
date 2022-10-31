@@ -1,0 +1,35 @@
+---
+title: "Constructor-Analysis"
+author: "Fabian Nicklas"
+date: '2022-06-30'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+```
+
+Wir betrachten die Liste aller Konstrukteure, die in der Formel1 aktiv waren und fragen uns, wie erfolgreich sie jeweils waren, und wer der erfolgreichste Konstrukteur der Formel1 ist und wie groß der Abstand ist. Dazu betrachten wir die von uns erstellte Tabelle constructorsXconstructor_standingXraces und filtern aus ihr, um die Darstellung übersichtlich zu halten, alle Konstrukteure mit mehr als 10 Siegen heraus. 
+```{r ConstructorsAnalysis, message=FALSE, warning=FALSE, include=TRUE}
+nbcols <- 15
+mycolors <- colorRampPalette(brewer.pal(8, "Dark2"))(nbcols)
+constructorsXconstructor_standingXraces <- read_csv("dataBereinigt/constructorsXconstructor_standingXraces.csv")
+constructorsXconstructor_standingXraces %>%
+  dplyr::filter(year >= 1960) %>%
+  dplyr::filter(wins == 1) %>%
+  group_by(name.x) %>%
+  summarise(sumWins = sum(wins)) %>%
+  filter(sumWins > 15) %>%
+  ggplot(aes(x= sumWins, y = name.x, fill = name.x)) +
+  geom_bar(stat='identity') +
+  scale_fill_manual(values = mycolors) +
+  theme_linedraw() +
+  labs(title = "Constructor wins since 1960", subtitle = "Only constructors with more than 15 wins are shown")
+```
+
+Um die gewünschte Darstellung zu erzielen filtern wir mit Hilfe von Dplyr nach Daten bei denen das Jahr größer oder gleich 1960 ist und der Inhalt der Spalte wins genau 1 entspricht. Die erhaltenen Daten gruppieren wir nach name.x was dem Namen des Teams entspricht. Mit Hilfe von summarise erstellen wir einen neuen data frame, der die zuvor gefilterten Daten enthält. Die Gruppierungen werden hierbei wieder aufgelöst. Gleichzeitig erstellen wir die neue Spalte sumWins in der wir die Summe alle Siege eines Konstrukteurs speichern. In der ebebn erstellten Spalte filtern wir dann erneut nach den Zeilen, bei denen die Summe der Siege größer als 15 ist. Anschließend erstellen wir einen Barplot, auf dessen x-Achse wir die Summe der Siege speichern und auf dessen y-Achse die einzelnen Teams dargestellt sind. Wir änder das Theme des Graphen und fügen Überschrift sowie Unterüberschrift hinzu. Mit Hilfe von stat='identity teilen wir ggplot2 mit, dass die Aggregation zur Bestimmung der y-Werte übersprungen werden soll, da wir die Werte bereitstellen. Außerdem nutzen wir eine mit Hilfe von Colorbrewer erstellte Farbpalette, um der Grafik eine bessere Lesbarkeit zu geben. 
+Beim auswerten der Ergebnisse fällt auf, dass die Graphen nicht der Wirklichkeit entsprechen. So kommt Ferrari seit 1960 auf knapp 200 Siege, und auch der 7-fache Konstrukteursweltmeister Mercedes hat mehr Siege als die Grafik eigentlich anzeigt. Es ist also offensichtlich, dass bei dieser Anaylse etwas nicht wie geplant gelaufen ist. Die naheliegendste Vermutung ist, dass der Fehler entweder in den Daten selbst liegt, (Was Aufgrund der Tatsache, dass die Datenlage bei Daten aus der Vergangenheit schon einmal lückenhaft war, nicht unwahrscheinlich ist) oder das der Fehler beim Zählen der einzelnen Siege des jeweiligen Konstrukteurs liegt, was eher unwahrscheinlich ist, da die Top 15 dargestellten Konstrukteure passend sind. Eine weitere wenn auch unwahrscheinliche Möglichkeit ist, dass Namensänderungen der Teams hier Probleme machen. Diese sind in der Formel1 nicht ungewöhnlich, und kommen recht häufig vor, was jedoch zur Folge hat das der Konstrukteur nicht mehr unter seinem alten Namen gelistet wird, und ihm Efolge auch nicht mehr unter diesem Namen gutgeschrieben werden. Da folglich auch keine vergangenen Erfolge des Konstrukteurs mehr referenziert werden können, kann es möglich sein, dass die erhaltenen Ergebnisse nicht den erwarteten entsprechen. 

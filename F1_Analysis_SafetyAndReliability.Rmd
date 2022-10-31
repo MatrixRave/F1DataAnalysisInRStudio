@@ -1,0 +1,54 @@
+---
+title: "F1-Anaylse: Sicherheit und Zuverlässigkeit"
+author: "Fabian Nicklas"
+date: '2022-06-02'
+output: html_document
+---
+
+Die Formel1 war und ist gefährlich, doch wie hat sich die Gefahr über die Jahre geändert? Und wie zuverlässig sind die Autos mit der Zeit geworden? Wir versuchen diese Frage zu beantworten indem wir die Daten der Tabelle "resultsXracesXstatus" betrachten und versuchen zu interpretieren. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(DT)
+library(RColorBrewer)
+```
+
+Um die Lesbarkeit der Grafik zu gewährleisten, beziehen wir nur die Statuscodes mit ein, die öfter als 100 mal vorkommen. Die Anzahl der verbleibenden Codes ist immer noch groß genug um eine Aussage über die Entwicklung der Zuverlässigkeit im Laufe der Zeit treffen zu können. Um die gewünschten Daten zu erhalten nutzen wir die Filter Funktion von "dplyr" und 
+```{r ReliabilityAnalysisSetup, message=FALSE, warning=FALSE, include=TRUE, echo= FALSE}
+resultsXracesXstatus <- read_csv("dataBereinigt/resultsXracesXstatus.csv")
+resultsXracesXstatusReliability <- resultsXracesXstatus %>%
+  dplyr::filter(! statusId %in% c(1,2,3,4,11,12,13,14,15,16,17,18,19,20,45,50,128,53,55,54,58,62,73,77,81,82,88,96,97,100,104,107,111,112,113,114,115,116,117,118,119,120,122,123,124,125,127,133,134,139, 135, 136, 137, 138, 129,110,102,103,105,28,33,35,39,46,49,56,59,61,63,70,71,72,74,78,79,85,87,89,90,92,93,106,26,34,41,66,132,126,76,65,21,29,30,32,38,40,42,43,47,67,68,75,83,84,91,94,95,98,99,108,109,121,130,131,24,27,31,36,48,51,60,64,86))
+```
+
+Beim Thema Sicherheit enthalten die Daten nur 3 Statuscodes die eindeutig zum Thema Fahrersicherheit gehören. Wir filtern nach diesen 3 Codes, um die Daten weiter nutzen zu können. 
+```{r SafetyAnalysisSetup, message=FALSE, warning=FALSE, include=TRUE, echo= FALSE}
+resultsXracesXstatusSafety <- resultsXracesXstatus %>%
+  dplyr::filter(statusId %in% c(73,82,104))
+resultsXracesXstatusReliability$statusId <- as_factor(resultsXracesXstatusReliability$statusId)
+```
+
+Bei der Sicherheitsanalyse stößt man schnell auf Wiedersprüche, bzw. eine Datenlage die nicht sinnvoll erscheint. Um diese genauer zu betrachten, geben wir die gefilterten Daten als Tabelle aus, und betrachten uns das Ergebnis. Sofort fällt auf, dass die Tabelle für über 75 Jahre in einem Sport der vor allem in der Vergangenheit als sehr gefährlich galt, mit 23 nur sehr wenige Einträge enthält. Enthalten sind in der Tabelle Verletzungen, tödliche Unfälle und  verletzte Fahrer. Bei genauerem betrachten fällt auf, dass die letzte Verletzung scheinbar im Jahr 2011 lag, und sich seitdem kein Fahrer mehr in der Formel1 verltzte. Tatsächlich zog sich im November 2020 jedoch ein Fahrer Verbrennungen zu, die Daten in der Tabelle scheinen also nicht mit der Realität übereinzustimmen. Dies lässt sich anhand weiterer Beispiele belegen, so fehlt zum Beispiel der Unfall von Jules Bianchi, der 2014 so schwer verunglückte, dass er 2015 an den Folgen seiner Verletzungen verstarb. Da wir mit großer Sicherheit sagen können, dass die Daten hier nicht mit der Wirklichkeit übereinstimmen beziehungsweise weit von ihr entfernt sind, verzichten wir hier auf eine weitere Analyse, um kein falsches Bild zu vermitteln. Derr Grund für dieses Problem liegt mit hoher Wahrscheinlichkeit darin, wie von der FIA die offiziellen Statuscodes vergeben werden. So scheint Unfall beispielsweise nur dann als tödlicher Unfall zu gelten, wenn der Fahrer direkt während des Unfalls verstorben ist, nicht aber wenn er kurze Zeit später im Krankenhaus verstirbt. Zudem scheint es so, dass Unfälle bei denen sich ein Fahrer verletzt trotzdem als Crash oder Accident gelsitet werden. Das Problem daran ist, dass man die Unfälle mit verletzten Fahrern nicht von den Unfällen ohne verlertzten Fahrer unterscheiden kann und eine Analyse mit den gegebenen Daten dann nicht mehr umsetzbar ist. 
+```{r SafetyAnalyse, message=FALSE, warning=FALSE, include=TRUE}
+resultsXracesXstatusSafety %>% 
+  dplyr::select(-positionText, -positionOrder, -grid, -position, -laps, -time, -milliseconds, -fastestLapTime, -fastestLap, -fastestLapSpeed, -fastestLapTimeConverted, -points, -rank, -circuitId, -circuitRef, -lat, -lng, -alt, -resultId, -location) %>%
+  arrange(desc(year)) %>%
+  datatable()
+```
+
+Wir nehmen die Tabelle mit den eben gefilterten Daten und zeichnen daraus zwei Grafiken, einen Barplot und einen Boxplot. Beim Barplot mappen wir die Anazhl der azfgetretenen Merkmale auf die y-Achse und die verschiedenen Merkmale auf die x-Achse. Wir wechseln das Theme des Graphen, und passen die Farben der einzelnen Balken an. Für den bzw. die Boxplots mappen wir auf die x-Achse das Jahr und auf die y-Achse die statusId´s. Auch hier passen wir das Theme des Graphen an. Bei beiden Graphen passen wir zudem die Skalierung an, um die Lesbarkeit der Grafiken zu verbessern. Bei beiden Grafiken erstellen wir außerdem eine Legende mit Hilfe des Attributs status. Der Barplot hat den Vorteil, dass wir die Geasmtzahl des jeweiligen Statuscodes einfach ablesen können. Der Boxplot hat den Vorteil, dass man sieht in welchem Zeitraum das Merkmal besonders stark ausgeprägt war, und von wann bis wann es auftrat. Beide Grafiken zeigen, das die Motoren eine häufig betroffene Komponente sind, im Boxplot wird zudem deutlich, dass die Motoren immer eine anfällige Komponente waren. Insgesamt ist im Boxplot erkennbar, dass sich die Zuverlässigkeit der Fahrzeuge verbessert. Zu beachten ist jedoch, dass eine Abwesenheit von Ausfällen bei einer Komponente über eine gewisse Zeitspanne nicht heißen muss, dass die Komponente in diesem Zeitraum zu 100% zuverlässig war. Sie kann (wie zum Beispiel der Turbolader) auch einfach nur nicht zum Einsatz gekommen sein, weil sie zum Beispiel durch das Reglement verboten war. 
+```{r PlotReliability, message=FALSE, warning=FALSE, include=TRUE}
+  nbcols <- 15
+  mycolors <- colorRampPalette(brewer.pal(8, "Dark2"))(nbcols)
+  ggplot(resultsXracesXstatusReliability) +
+  geom_bar(mapping=aes(x=statusId, fill = status)) + 
+  scale_fill_manual(values = mycolors) +
+  theme_linedraw()
+
+  ggplot(resultsXracesXstatusReliability) +
+  geom_boxplot(mapping=aes(x = year, y=statusId, fill = status)) + 
+  scale_fill_manual(values = mycolors) +
+  theme_linedraw()
+```

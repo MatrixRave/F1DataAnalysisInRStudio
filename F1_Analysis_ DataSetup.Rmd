@@ -1,0 +1,127 @@
+---
+title: "F1-Anaylse: Vorbereitung der Daten"
+author: "Fabian Nicklas"
+date: '2022-05-30'
+output: html_document
+---
+Dieses Projekt beschäftigt sich mit der Analyse von Daten aus der Formel1, einer Rennserie der FIA. Die Daten beziehen wir von der Webseite http://ergast.com/mrd/ von Chris Newell, einer API die die Daten nach jedem Rennen aktualisiert und zur Verfügung stellt. Um uns die Arbeit später zu vereinfachen, bereiten wir die Daten hier für unsere Zwecke auf und erstellen uns mit Hilfe der von Ergast bezogenen Tabellen unsere eigenen Tabellen die wir für die Analyse nutzen. 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(readr)
+```
+
+Wir beginnen zunächst damit, dass wir uns die benötigten Tabellen mit Hilfe des Befehls "read_csv" importieren und innerhalb des Projekts in eine Tabelle schreiben. Da wir nicht alle Tabellen benötigen, importieren wir nur die, die wir wirklich brauchen. In unserem Fall sind das die Tabellen "circuits", "drivers", "lap_times", "qualifying", "races", "results", "constructor_results", "constructors" und "status". Um die Übersicht zu erhöhen, werden im folgenden kurz die wichtigsten Spalten der einzelnen Tabellen genannt. Alle Tabellen enthalten einen oder mehrere Schlüssel, mit denen auf andere Tabellen verwiesen wird. 
+Die Tabelle "circuits" enthält alle Rennstrecken sowie das Land und den Ort der Strecke, sowie einen eindeutigen Key, den es in jeder Tabelle gibt. 
+Die Tabelle "drivers" enthält alle Fahrer, deren Fahrernummer, den vollen Namen, das Geburtsdatum und eine eindeutige Referenz auf den Fahrer. 
+In "lap_times" sind die Position des Fahrers in der Runde, die Rundenzeit, dei Runde und die Rundenzeit in Millisekunden vermerkt. I
+n "qualifying" werden Nummer und Position des Fahrers und die Zeiten aus den Qualifyings 1-3 vermerkt. 
+"races" enthält das Jahr, das Datum, den Namen des Rennens und eine Information um welches Rennen der Saison es sich handelte. 
+"results" ist die für uns wichtigste Tabelle, da wir mit ihr jede andere Tabelle joinen können. Sie enthält die Anzahl Punkte die ein Fahrer für ein Rennen erhielt, die Zahl absolvierter Runden, die Gesamtzeit, die Zeit der schnellsten Runde, die Geschwindigkeit der schnellsten Runde, die Information welche Runde die schnellste Runde des Fahrers war und eine statusId und das für jeden Fahrer und für jede Runde die er gefahren ist. 
+"constructor_results" enthält Schlüssel auf den Konstrukteur, das Rennen und die Information wie viele Punkte der Konstrukteur in diesem Rennen erzielte. 
+Die Tabelle "constructors_standings" enthält neben Schlüsseln die auf andere Tabellen verweisen auch die Punkte des Constructors für die Saison, und die Position des Constructors. 
+"constructors" enthält eine eindeutige Referenz, den Namen und die Nationalität des Konstruktors. "status" enthält zu jeder statusId den jeweiligen Status in Textform. Die Funktion für diese Umwandlung stammt in der Basis von 
+https://www.kaggle.com/code/jonathanbouchet/f1-data-analysis/report von Jonathan Bouchet, allerdings erweitern wir die Funktion um die Genauigkeit der Werte zu verbessern.
+
+```{r DataImport, message=FALSE, warning=FALSE, include=TRUE, echo= FALSE}
+circuits <- read_csv("data/circuits.csv")
+drivers <- read_csv("data/drivers.csv")
+lap_times <- read_csv("data/lap_times.csv")
+qualifying <- read_csv("data/qualifying.csv")
+races <- read_csv("data/races.csv")
+results <- read_csv("data/results.csv")
+constructor_results <- read_csv("data/constructor_results.csv")
+constructors <- read_csv("data/constructors.csv")
+status <- read_csv("data/status.csv")
+constructor_standings <- read_csv("data/constructor_standings.csv")
+```
+
+Nachdem wir die Tabellen importiert haben, entfernen wir Spalten von denen wir sicher sagen können, dass wir sie nicht benötigen. Bei "circuits" ist das die "url", bei "races" sind es "url" und "time", bei "constructor_results" "status", bei "constructors" entfernen wir wieder die "url", ebenso bei "drivers".
+```{r DataSetup}
+circuits <- circuits %>% 
+  dplyr::select(-url)
+races <- races %>% 
+  dplyr::select(-url, -time)
+constructor_results <- constructor_results %>% 
+  dplyr::select(-status)
+constructors <- constructors %>% 
+  dplyr::select(-url)
+drivers <- drivers %>% 
+  dplyr::select(-url)
+```
+
+In der Tabelle results ist die Spalte "fastestLapTime" als charakter abgespeichert, wodurch sie für uns für die Analyse unbrauchbar ist. Wir lösen das Problem indem wir uns eine Funktion zum Umwandeln der Werte schreiben. Wir prüfen dafür ob die Länge des Feldes größer als null ist, ist dies der Fall, splitten wir den String in 3 Teile auf. Wir erhalten so einen Wert für die Minuten, die Sekunden und die hundertstel Sekunden einer Runde. Um den Wert nutzen zu können multiplizieren wir die Minuten mit 60 und addieren die Sekunden dazu. Zum Ergebnis dieser Rechnung addieren wir den durch 1000 geteilten Wert für die hundertstel Sekunden und erhalten so die genaue Rundenzeut als double-Wert. Ist die Länge des Feldes nicht größer als 0, geben wir ein NA für not available geschrieben. Um die Funktion nicht immer wieder neu ausführen zu müssen, erstellen wir eine neue Spalt mit dem Namen "fastestLapTimeConverted" und füllen sie mit den neuen Werten. Falls sie die Funktion selbst ausführen erschrecken sie nicht, wenn ihnen ein parsing error ausgegeben wird, die erhaltenen Werte stimmen. 
+```{r convertLapTimes, message=FALSE, warning=FALSE, include=TRUE}
+convertFastestLap <- function(x) {
+  if(length(x) > 0) {
+    curMinute <- as.numeric(strsplit(x,":")[[1]][1])
+    curSeconds <- as.numeric(strsplit(strsplit(x,":")[[1]][2],"\\.")[[1]][1])
+    n_last <- 3                                
+    curHundredSeconds <- as.numeric(substr(x, nchar(x) - n_last + 1, nchar(x)))
+    seconds = 0.0
+    as.double(seconds<- curMinute*60 + curSeconds)
+    return(seconds + (curHundredSeconds /1000))
+  }
+  else if(length(x) == 0){
+    return(NA)
+  }
+}
+results$fastestLapTimeConverted <- sapply(results$fastestLapTime, convertFastestLap)
+```
+
+Da wir das selbe Problem das wir mit der schnellsten Rundenzeit haben auch mit den Qualifying-Zeiten haben, wenden wir die Funktion von oben noch einmal an. Einziger Unterschied ist, dass wir diesmal 3 neue Spalten erstellen und mit Werten füllen, eine für jede Session des Qualifyings. 
+```{r convertQualifyingTimes, message=FALSE, warning=FALSE, include=TRUE}
+convertQualifyingTimes <- function(x) { 
+  if(length(x) > 0) {
+    curMinutes <- as.numeric(strsplit(x,":")[[1]][1])
+    curSeconds <- as.numeric(strsplit(strsplit(x,":")[[1]][2],"\\.")[[1]][1])
+    n_last <- 3
+    curHundredSeconds <- as.numeric(substr(x, nchar(x) - n_last + 1, nchar(x)))
+    seconds = 0.0
+    as.double(seconds<- curMinutes*60 + curSeconds)
+    return(seconds + (curHundredSeconds / 1000))
+  }
+  else if(length(x) == 0){
+    return(NA)
+  }
+}
+qualifying$q1Converted <- sapply(qualifying$q1, convertQualifyingTimes)
+qualifying$q2Converted <- sapply(qualifying$q2, convertQualifyingTimes)
+qualifying$q3Converted <- sapply(qualifying$q3, convertQualifyingTimes)
+```
+
+Da wir den Code später übersichtlich halten wollen, versuchen wir so wenige Tabellen wie möglich zu verwenden und das Mergen und Filtern von Tabellen schon vorher zu erledigen. Da wir die Tabelle "results" als Basis nutzen werden, da sie die meisten Fremdschlüssel enthält und sich als Ausgangspunkt am besten eignet, erstellen wir uns mehrere Tabellen die die "results" Tabelle enthalten. Wir erstellen uns eine Tabelle "resultsXraces" für die wir "results" und "races" zu einer Tabelle mergen, indem wir das Attribut "raceId" nutzen. Das gleiche machen wir auch für die Tabelle "qualifyingXraces". Die Tabelle "resultsXracesXstatus" erstellen wir indem wir auf die "resultsXraces" Tabelle die "status" Tabelle mnergen, mit Hilfe des Attributs "statusId". Nach diesem Prinzip verfahren wir auch für die übrigen Tabellen, die verwendeten Tabellen stehen dabei immer im Namen der neu erstellten Tabelle.  
+```{r TabelJoins}
+resultsXraces <- merge(x = results, y = races, by = "raceId", all.x = TRUE)
+qualifyingXraces <- merge(x = qualifying, y = races, by = "raceId", all.x = TRUE)
+resultsXraces <- merge(x = resultsXraces, y = circuits, by = "circuitId", all.x = TRUE)
+resultsXracesXstatus <- merge(x = resultsXraces, y = status, by = "statusId", all.x = TRUE)
+resultsXracesXqualifying <- merge(x = resultsXraces, y = qualifying, by = "raceId", all.x = TRUE)
+resultsXdrivers <- merge(x = results, y = drivers, by = "driverId", all.x = TRUE)
+resultsXdriversXraces <- merge(x = resultsXdrivers, y = races, by = "raceId", all.x = TRUE)
+constructorsXconstructor_standing <- merge(x = constructors, y = constructor_standings, by = "constructorId", all.x = TRUE)
+constructorsXconstructor_standingXraces <- merge(x = constructorsXconstructor_standing, y = races, by = "raceId", all.x =  TRUE)
+```
+
+Um die Änderungen die wir an den Tabellen durchgeführt haben zu speichern, bzw. um unsere selbst erstellten Tabellen zu sichern, schreiben wir alle Tabellen in eine eigene CSV-Datei und speichern sie. So können wir bei Bedarf direkt auf die vorbereiteten Daten zurückgreifen. 
+```{r DataExport, message=FALSE, warning=FALSE, include=TRUE, echo= FALSE}
+write_csv(circuits, "dataBereinigt/circuitsCleaned.csv")
+write_csv(races, "dataBereinigt/racesCleaned.csv")
+write_csv(constructor_results, "dataBereinigt/constructor_resultsCleaned.csv")
+write_csv(constructors, "dataBereinigt/constructorsCleaned.csv")
+write_csv(drivers, "dataBereinigt/driversCleanded.csv")
+write_csv(results, "dataBereinigt/resultsCleaned.csv")
+write_csv(qualifying, "dataBereinigt/qualifyingCleaned.csv")
+write_csv(qualifyingXraces, "dataBereinigt/qualifyingXraces.csv")
+write_csv(resultsXraces, "dataBereinigt/resultsXraces.csv")
+write_csv(resultsXracesXstatus, "dataBereinigt/resultsXracesXstatus.csv")
+write_csv(resultsXracesXqualifying, "dataBereinigt/resultsXracesXqualifying.csv")
+write_csv(resultsXdrivers, "dataBereinigt/resultsXdrivers.csv")
+write_csv(resultsXdriversXraces, "dataBereinigt/resultsXdriversXraces.csv")
+write_csv(constructorsXconstructor_standing, "dataBereinigt/constructorsXconstructor_standings.csv")
+write_csv(constructorsXconstructor_standingXraces, "dataBereinigt/constructorsXconstructor_standingXraces.csv")
+```
+
+Eine Schwierigkeit mit den Daten ist den Überblick zu behalten, hinter welcher Spalte in welcher Tabelle sich welche Daten verstecken, da die Tabellen durch die vielen Schlüssel die benötigt werden um eine Datenbank zu erstellen, sehr groß und verzweigt sind. Gleichzeitig sind neben der in manchen Tabellen sehr hohen Anahl an Schlüsseln auch die Zahl der Spalten die Daten enthalten sehr hoch. Die Schwierigkeit besteht dann darin die verwertbaren Daten von den nicht verwertbaren Daten zu unterscheiden und die entsprechenden Spalten auszusortieren. Ein weiteres Problem mit den vorhandenen Daten ist, dass ab einem bestimmten Punkt die Datenlage extrem dünn wird. So sind ab der Saison 2003 abwärts keine Rundenzeiten mehr verfügbar, was die Analyse der Entwicklung der Rundenzeiten extrem erschwert. Auch bei anderen Spalten wird die Datenlage je weiter man in die Vergangenheit geht immer dünner, was verschiedene Analysen schwer oder gar nicht erst möglich macht. Ebenfalls schwierig ist, dass manche der Zeiten als Datentyp Charakter vorliegen. Dies macht eine Umwandlung der betroffenen Spalten notwendig, was es nötig macht eigene Funktionen zur Umwandlung zu schreiben. Die Gefahr hierbei ist, dass die Daten an Genauigkeit verlieren. 
+
+Probleme und Schwierigkeiten mit den Daten ergänzen, so dass ein unwissender Dritter direkt mit allen Fakten versorgt wäre. 
